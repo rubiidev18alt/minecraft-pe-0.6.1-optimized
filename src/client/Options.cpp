@@ -14,6 +14,22 @@ bool Options::debugGl = false;
 // visible to the client compilation unit.
 bool g_mcpePotatoMode = true;
 
+// Preserve the user's graphics settings while the lowest-quality preset is active.
+struct PotatoGraphicsBackup {
+    bool valid;
+    bool fancyGraphics;
+    bool limitFramerate;
+    bool vsync;
+    int viewDistance;
+    bool viewBobbing;
+    bool ambientOcclusion;
+    bool normalLighting;
+    bool beautifulSky;
+    bool vignette;
+};
+
+static PotatoGraphicsBackup g_potatoBackup = { false, true, false, true, 2, true, true, true, true, true };
+
 // OPTIONS TABLE
 
 OptionInt difficulty("difficulty", Difficulty::NORMAL, 0, Difficulty::COUNT);
@@ -173,8 +189,48 @@ void Options::toggle(OptionId key) {
     auto option = opt<OptionBool>(key);
     if (option) {
         option->toggle();
-        if (key == OPTIONS_POTATO_MODE)
+
+        if (key == OPTIONS_POTATO_MODE) {
             g_mcpePotatoMode = option->get();
+
+            if (g_mcpePotatoMode) {
+                // Save the user's current graphics configuration once, then
+                // apply the absolute lowest-cost graphics configuration.
+                g_potatoBackup.valid = true;
+                g_potatoBackup.fancyGraphics = fancyGraphics.get();
+                g_potatoBackup.limitFramerate = limitFramerate.get();
+                g_potatoBackup.vsync = vsync.get();
+                g_potatoBackup.viewDistance = viewDistance.get();
+                g_potatoBackup.viewBobbing = viewBobbing.get();
+                g_potatoBackup.ambientOcclusion = ambientOcclusion.get();
+                g_potatoBackup.normalLighting = useNormalLighting.get();
+                g_potatoBackup.beautifulSky = beautifulSky.get();
+                g_potatoBackup.vignette = useVignette.get();
+
+                fancyGraphics.set(false);
+                limitFramerate.set(true);
+                vsync.set(false);
+                viewDistance.set(0);
+                viewBobbing.set(false);
+                ambientOcclusion.set(false);
+                useNormalLighting.set(false);
+                beautifulSky.set(false);
+                useVignette.set(false);
+            } else if (g_potatoBackup.valid) {
+                // Restore exactly what the user had before activating the preset.
+                fancyGraphics.set(g_potatoBackup.fancyGraphics);
+                limitFramerate.set(g_potatoBackup.limitFramerate);
+                vsync.set(g_potatoBackup.vsync);
+                viewDistance.set(g_potatoBackup.viewDistance);
+                viewBobbing.set(g_potatoBackup.viewBobbing);
+                ambientOcclusion.set(g_potatoBackup.ambientOcclusion);
+                useNormalLighting.set(g_potatoBackup.normalLighting);
+                beautifulSky.set(g_potatoBackup.beautifulSky);
+                useVignette.set(g_potatoBackup.vignette);
+                g_potatoBackup.valid = false;
+            }
+        }
+
         notifyOptionUpdate(key, option->get());
     }
 }
@@ -191,6 +247,20 @@ void Options::load() {
         (*opt)->parse(value);
     }
     g_mcpePotatoMode = potatoMode.get();
+
+    // Older option files can already have potatoMode enabled. Treat that as
+    // the lowest graphics preset without requiring the user to toggle it.
+    if (g_mcpePotatoMode) {
+        fancyGraphics.set(false);
+        limitFramerate.set(true);
+        vsync.set(false);
+        viewDistance.set(0);
+        viewBobbing.set(false);
+        ambientOcclusion.set(false);
+        useNormalLighting.set(false);
+        beautifulSky.set(false);
+        useVignette.set(false);
+    }
 }
 
 void Options::save() {
