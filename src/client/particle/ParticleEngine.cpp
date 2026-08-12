@@ -126,3 +126,41 @@ void ParticleEngine::destroy(int x, int y, int z) {
                 add((new TerrainParticle(level, xp, yp, zp, 2*(xp - x - 0.5f), 2*(yp - y - 0.5f), 2*(zp - z - 0.5f), tile, data))->init(x, y, z));
             }
 }
+
+void ParticleEngine::crack(int x, int y, int z, int face) {
+    int tid = level->getTile(x, y, z);
+    if (tid == 0) return;
+    int data = level->getData(x, y, z);
+    Tile* tile = Tile::tiles[tid];
+    float r = 0.10f;
+    float xp = x + random.nextFloat() * ((tile->xx1 - tile->xx0) - r * 2) + r + tile->xx0;
+    float yp = y + random.nextFloat() * ((tile->yy1 - tile->yy0) - r * 2) + r + tile->yy0;
+    float zp = z + random.nextFloat() * ((tile->zz1 - tile->zz0) - r * 2) + r + tile->zz0;
+    switch (face) {
+        case 0: yp = y + tile->yy0 - r; break;
+        case 1: yp = y + tile->yy1 + r; break;
+        case 2: zp = z + tile->zz0 - r; break;
+        case 3: zp = z + tile->zz1 + r; break;
+        case 4: xp = x + tile->xx0 - r; break;
+        case 5: xp = x + tile->xx1 + r; break;
+    }
+    add((new TerrainParticle(level, xp, yp, zp, 0, 0, 0, tile, data))->init(x, y, z)->setPower(0.2f)->scale(0.6f));
+}
+
+std::string ParticleEngine::countParticles() {
+    std::stringstream ss;
+    int count = 0;
+    for (int i = 0; i < TEXTURE_COUNT; ++i)
+        count += particles[i].size();
+    ss << count;
+    return ss.str();
+}
+
+void ParticleEngine::clear()
+{
+    for (int tt = 0; tt < TEXTURE_COUNT; tt++) {
+        for (unsigned int i = 0; i < particles[tt].size(); i++)
+            delete particles[tt][i];
+        particles[tt].clear();
+    }
+}
