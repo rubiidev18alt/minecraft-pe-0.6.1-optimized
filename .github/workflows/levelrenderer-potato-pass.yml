@@ -1,0 +1,142 @@
+name: Apply LevelRenderer potato pass
+
+on:
+  push:
+    branches:
+      - ultra-potato-optimization
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    if: "!contains(github.event.head_commit.message, '[levelrenderer-potato]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ultra-potato-optimization
+          fetch-depth: 0
+
+      - name: Patch LevelRenderer.cpp
+        shell: python
+        run: |
+          from pathlib import Path
+
+          cpp = Path('src/client/renderer/LevelRenderer.cpp')
+          cfg = Path('src/client/renderer/OptimizationConfig.h')
+          s = cpp.read_text()
+          c = cfg.read_text()
+
+          c = c.replace(
+              '#define MCPE_DIRTY_SCAN_PER_FRAME 4\n',
+              '#define MCPE_DIRTY_SCAN_PER_FRAME 4\n#define MCPE_CHUNK_RESORT_DISTANCE_SQ (12.0f * 12.0f)\n#define MCPE_CULL_STEP_MASK 31\n'
+          )
+          c = c.replace(
+              '#define MCPE_DIRTY_SCAN_PER_FRAME 10\n',
+              '#define MCPE_DIRTY_SCAN_PER_FRAME 10\n#define MCPE_CHUNK_RESORT_DISTANCE_SQ (8.0f * 8.0f)\n#define MCPE_CULL_STEP_MASK 15\n'
+          )
+          cfg.write_text(c)
+
+          old = '''\tif (dist > 400) dist = 400;'''
+          new = '''\t// Hard renderer-side cap. This keeps the chunk grid bounded even when the
+\t// user selects a larger vanilla view distance.
+\tif (dist > MCPE_MAX_RENDER_DISTANCE) dist = MCPE_MAX_RENDER_DISTANCE;'''
+          assert old in s, 'distance cap anchor missing'
+          s = s.replace(old, new, 1)
+
+          old = '''\tTIMER_PUSH("sortchunks");
+\tfor (int i = 0; i < 10; i++) {
+\t\tchunkFixOffs = (chunkFixOffs + 1) % chunksLength;
+\t\tChunk* c = chunks[chunkFixOffs];
+\t\tif (c->isDirty() && std::find(dirtyChunks.begin(), dirtyChunks.end(), c) == dirtyChunks.end()) {
+\t\t\tdirtyChunks.push_back(c);
+\t\t}
+\t}'''
+          new = '''\tTIMER_PUSH("sortchunks");
+\t// Dirty chunks are enqueued at the point they become dirty. The old code
+\t// scanned chunks every frame and used std::find() on the queue, producing
+\t// O(scan * queue) work on low-end CPUs. Keep only a tiny defensive sweep.
+\tfor (int i = 0; i < MCPE_DIRTY_SCAN_PER_FRAME; ++i) {
+\t\tchunkFixOffs = (chunkFixOffs + 1) % chunksLength;
+\t}'''
+          assert old in s, 'dirty scan anchor missing'
+          s = s.replace(old, new, 1)
+
+          old = '''\tif (xd * xd + yd * yd + zd * zd > 4 * 4) {'''
+          new = '''\tif (xd * xd + yd * yd + zd * zd > MCPE_CHUNK_RESORT_DISTANCE_SQ) {'''
+          assert old in s, 'resort anchor missing'
+          s = s.replace(old, new, 1)
+
+          old = '''\t\t\tif (!sortedChunks[i]->empty[layer] && sortedChunks[i]->visible && sortedChunks[i]->occlusion_visible) {
+\t\t\tint list = sortedChunks[i]->getList(layer);'''
+          new = '''\t\t\tif (!sortedChunks[i]->empty[layer] && sortedChunks[i]->visible && sortedChunks[i]->occlusion_visible) {
+\t\t\tint list = sortedChunks[i]->getList(layer);'''
+          assert old in s, 'render list anchor missing'
+
+          old = '''\t\t\tif (entity->shouldRender(cam) && culler->isVisible(entity->bb))
+\t\t\t{'''
+          new = '''\t\t\t// Cheap distance rejection before the more expensive renderer/culler tests.
+\t\t\tfloat ex = entity->x - player->x;
+\t\t\tfloat ey = entity->y - player->y;
+\t\t\tfloat ez = entity->z - player->z;
+\t\t\tif (ex * ex + ey * ey + ez * ez > MCPE_MAX_ENTITY_RENDER_DISTANCE_SQ)
+\t\t\t\tcontinue;
+
+\t\t\tif (entity->shouldRender(cam) && culler->isVisible(entity->bb))
+\t\t\t{'''
+          assert old in s, 'entity culling anchor missing'
+          s = s.replace(old, new, 1)
+
+          old = '''\t\tEntity** toRender = new Entity*[totalEntities];
+\t\tfor (int i = 0; i < totalEntities; i++) {
+\t\t\tEntity* entity = entities[i];'''
+          new = '''\t\t_entitiesToRender.clear();
+\t\tif (_entitiesToRender.capacity() < (unsigned int)totalEntities)
+\t\t\t_entitiesToRender.reserve(totalEntities);
+\t\tfor (int i = 0; i < totalEntities; i++) {
+\t\t\tEntity* entity = entities[i];'''
+          assert old in s, 'entity allocation anchor missing'
+          s = s.replace(old, new, 1)
+
+          old = '''\t\t\t\ttoRender[renderedEntities++] = entity;
+\t\t\t\t//EntityRenderDispatcher::getInstance()->render(entity, a);'''
+          new = '''\t\t\t\t_entitiesToRender.push_back(entity);
+\t\t\t\trenderedEntities++;
+\t\t\t\t//EntityRenderDispatcher::getInstance()->render(entity, a);'''
+          assert old in s, 'entity push anchor missing'
+          s = s.replace(old, new, 1)
+
+          old = '''\t\tif (renderedEntities > 0) {
+\t\t\tstd::sort(&toRender[0], &toRender[renderedEntities], entityRenderPredicate);
+\t\t\tfor (int i = 0; i < renderedEntities; ++i) {
+\t\t\t\tEntityRenderDispatcher* disp = EntityRenderDispatcher::getInstance();
+\t\t\t\tdisp->render(toRender[i], a);
+\t\t\t}
+\t\t}
+
+\t\tdelete[] toRender;'''
+          new = '''\t\tif (renderedEntities > 1) {
+\t\t\tstd::sort(_entitiesToRender.begin(), _entitiesToRender.end(), entityRenderPredicate);
+\t\t}
+\t\tfor (unsigned int i = 0; i < _entitiesToRender.size(); ++i) {
+\t\t\tEntityRenderDispatcher* disp = EntityRenderDispatcher::getInstance();
+\t\t\tdisp->render(_entitiesToRender[i], a);
+\t\t}'''
+          assert old in s, 'entity sort/free anchor missing'
+          s = s.replace(old, new, 1)
+
+          old = '''\t\t\tif (!chunks[i]->visible || ((i + cullStep) & 15) == 0) {'''
+          new = '''\t\t\tif (!chunks[i]->visible || ((i + cullStep) & MCPE_CULL_STEP_MASK) == 0) {'''
+          assert old in s, 'cull stride anchor missing'
+          s = s.replace(old, new, 1)
+
+          cpp.write_text(s)
+      - name: Commit optimized renderer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/client/renderer/LevelRenderer.cpp src/client/renderer/OptimizationConfig.h .github/workflows/levelrenderer-potato-pass.yml
+          git rm .github/workflows/levelrenderer-potato-pass.yml
+          git commit -m "Aggressively optimize LevelRenderer [levelrenderer-potato]"
+          git push origin ultra-potato-optimization
