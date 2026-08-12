@@ -7,3 +7,16 @@ macro(enum_option var values description)
     message(FATAL_ERROR "Unknown value ${${var}}. Only -D${var}=${${var}_VALUES} allowed.")
   endif()
 endmacro()
+
+# Global release optimizations. Android uses its NDK Application.mk as well;
+# these flags cover desktop builds without requiring a special CMake preset.
+if(NOT EMSCRIPTEN)
+  if(MSVC)
+    add_compile_options(/O2)
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+    add_compile_options(-O3 -fomit-frame-pointer -ffunction-sections -fdata-sections -fno-math-errno)
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.13")
+      add_link_options(-Wl,--gc-sections)
+    endif()
+  endif()
+endif()
