@@ -24,6 +24,8 @@ public:
 	void setDirty();
 	void setClean();
 	bool isDirty();
+	bool isQueued() const;
+	void setQueued(bool value);
 	void reset();
 
     float distanceToSqr(const Entity* player) const;
@@ -68,6 +70,7 @@ private:
 	GLuint* vboBuffers;
 	bool compiled;
 	bool dirty;
+	bool queued;
     bool _empty;
 };
 
