@@ -14,9 +14,6 @@
 //#include "../../platform/time.h"
 
 /*static*/ int Chunk::updates = 0;
-//static Stopwatch swRebuild;
-//int* _layerChunks[3] = {0, 0, 0}; //Chunk::NumLayers];
-//int _layerChunkCount[3] = {0, 0, 0};
 
 Chunk::Chunk( Level* level_, int x, int y, int z, int size, int lists_, GLuint* ptrBuf/*= NULL*/)
 :	level(level_),
@@ -25,6 +22,7 @@ Chunk::Chunk( Level* level_, int x, int y, int z, int size, int lists_, GLuint* 
     _empty(true),
 	xs(size), ys(size), zs(size),
 	dirty(false),
+	queued(false),
 	occlusion_visible(true),
 	occlusion_querying(false),
 	lists(lists_),
@@ -59,9 +57,6 @@ void Chunk::setPos( int x, int y, int z )
 	const float yn = 0.0f;
 	bb.set(x-xzg, y-yn, z-xzg, x + xs+xzg, y + ys+yp, z + zs+xzg);
 
-	//glNewList(lists + 2, GL_COMPILE);
-	//ItemRenderer.renderFlat(AABB.newTemp(xRenderOffs - g, yRenderOffs - g, zRenderOffs - g, xRenderOffs + xs + g, yRenderOffs + ys + g, zRenderOffs + zs + g));
-	//glEndList();
 	setDirty();
 }
 
@@ -73,19 +68,8 @@ void Chunk::translateToPos()
 void Chunk::rebuild()
 {
 	if (!dirty) return;
-	//if (!visible) return;
 	updates++;
 
-    //if (!_layerChunks[0]) {
-    //    for (int i = 0; i < NumLayers; ++i)
-    //        _layerChunks[i] = new int[xs * ys * zs];
-    //}
-    //for (int i = 0; i < NumLayers; ++i)
-    //    _layerChunkCount[i] = 0;
-    
-    //Stopwatch& sw = swRebuild;
-    //sw.start();
-    
 	int x0 = x;
 	int y0 = y;
 	int z0 = z;
@@ -116,7 +100,6 @@ void Chunk::rebuild()
 			for (int z = z0; z < z1; z++) {
 				for (int x = x0; x < x1; x++) {
                     ++cindex;
-                    //if (l > 0 && cindex != _layerChunks[_layerChunkCount[l]])
 					int tileId = region.getTile(x, y, z);
 					if (tileId > 0) {
 						if (!started) {
@@ -132,10 +115,7 @@ void Chunk::rebuild()
 							glTranslatef2(zs / 2.0f, ys / 2.0f, zs / 2.0f);
 #endif
 							t.begin();
-							//printf(".");
-							//printf("Tesselator::offset : %d, %d, %d\n", this->x, this->y, this->z);
 							t.offset((float)(-this->x), (float)(-this->y), (float)(-this->z));
-							//printf("Tesselator::offset : %f, %f, %f\n", this->x, this->y, this->z);
 						}
 
 						Tile* tile = Tile::tiles[tileId];
@@ -153,7 +133,6 @@ void Chunk::rebuild()
 		}
 
 		if (started) {
-
 #ifdef USE_VBO
 			renderChunk[l] = t.end(true, vboBuffers[l]);
 			renderChunk[l].pos.x = (float)this->x;
@@ -175,8 +154,6 @@ void Chunk::rebuild()
 		if (!renderNextLayer) break;
 	}
 
-    //sw.stop();
-    //sw.printEvery(1, "rebuild-");
 	skyLit = LevelChunk::touchedSky;
 	compiled = true;
 	return;
@@ -239,9 +216,7 @@ void Chunk::renderBB()
 
 bool Chunk::isEmpty()
 {
-	return compiled && _empty;//empty[0] && empty[1] && empty[2];
-//	if (!compiled) return false;
-//	return empty[0] && empty[1];
+	return compiled && _empty;
 }
 
 void Chunk::setDirty()
@@ -252,6 +227,7 @@ void Chunk::setDirty()
 void Chunk::setClean()
 {
 	dirty = false;
+	queued = false;
 }
 
 bool Chunk::isDirty()
@@ -259,8 +235,17 @@ bool Chunk::isDirty()
 	return dirty;
 }
 
+bool Chunk::isQueued() const
+{
+	return queued;
+}
+
+void Chunk::setQueued(bool value)
+{
+	queued = value;
+}
+
 void Chunk::resetUpdates()
 {
 	updates = 0;
-	//swRebuild.reset();
 }

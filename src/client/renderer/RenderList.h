@@ -7,7 +7,8 @@ class RenderChunk;
 
 class RenderList
 {
-	static const int MAX_NUM_OBJECTS = 1024 * 3;
+	// Large enough for the maximum vanilla chunk ring without an out-of-bounds write.
+	static const int MAX_NUM_OBJECTS = 16384;
 
 public:
 	RenderList();
@@ -18,7 +19,10 @@ public:
 	void add(int list);
 	void addR(const RenderChunk& chunk);
 
-	__inline void next() { ++listIndex; }
+	__inline void next() {
+		if (listIndex < MAX_NUM_OBJECTS)
+			++listIndex;
+	}
 
     void render();
 	void renderChunks();
