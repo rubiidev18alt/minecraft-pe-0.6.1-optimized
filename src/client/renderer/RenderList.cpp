@@ -33,18 +33,12 @@ void RenderList::init(float xOff, float yOff, float zOff) {
 }
 
 void RenderList::add(int list) {
-	if (listIndex >= MAX_NUM_OBJECTS) {
-		render();
-		if (listIndex >= MAX_NUM_OBJECTS) return;
-	}
+	if (listIndex >= MAX_NUM_OBJECTS) return;
 	lists[listIndex] = list;
 }
 
 void RenderList::addR(const RenderChunk& chunk) {
-	if (listIndex >= MAX_NUM_OBJECTS) {
-		render();
-		if (listIndex >= MAX_NUM_OBJECTS) return;
-	}
+	if (listIndex >= MAX_NUM_OBJECTS) return;
 	rlists[listIndex] = chunk;
 }
 
