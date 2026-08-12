@@ -28,10 +28,10 @@ void ParticleEngine::add(Particle* p) {
 
     ParticleList& list = particles[t];
     if (list.size() >= MCPE_MAX_PARTICLES_PER_TEXTURE) {
-        // Drop the oldest particle instead of allowing unbounded growth on
-        // low-memory devices. Particle order is not gameplay state.
+        // Particle order is not gameplay state; replace the oldest slot in O(1).
         delete list.front();
-        list.erase(list.begin());
+        list.front() = list.back();
+        list.pop_back();
     }
     list.push_back(p);
 }
@@ -44,8 +44,6 @@ void ParticleEngine::tick() {
             Particle* p = list[i];
             p->tick();
             if (p->removed) {
-                // Particle order is irrelevant, so swap-with-last avoids the
-                // O(n) tail shift caused by vector::erase in the hot loop.
                 list[i] = list.back();
                 list.pop_back();
                 delete p;
@@ -80,9 +78,8 @@ void ParticleEngine::render(Entity* player, float a) {
         Tesselator& t = Tesselator::instance;
         t.begin();
         const unsigned int size = particles[tt].size();
-        for (unsigned int i = 0; i < size; ++i) {
+        for (unsigned int i = 0; i < size; ++i)
             particles[tt][i]->render(t, a, xa, ya, za, xa2, za2);
-        }
         t.draw();
     }
 
@@ -104,10 +101,8 @@ void ParticleEngine::renderLit(Entity* player, float a) {
     float ya = Mth::cos(player->xRot * Mth::DEGRAD);
 
     Tesselator& t = Tesselator::instance;
-    for (int i = 0; i < size; i++) {
-        Particle* p = pl[i];
-        p->render(t, a, xa, ya, za, xa2, za2);
-    }
+    for (int i = 0; i < size; i++)
+        pl[i]->render(t, a, xa, ya, za, xa2, za2);
 }
 
 void ParticleEngine::setLevel(Level* level) {
