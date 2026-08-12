@@ -12,7 +12,7 @@ ParticleEngine::ParticleEngine(Level* level, Textures* textures)
 {
 	textures->loadTexture("particles.png");
 	for (int i = 0; i < TEXTURE_COUNT; ++i)
-		particles[i].reserve(MCPE_MAX_PARTICLES_PER_TEXTURE);
+		particles[i].reserve(MCPE_getMaxParticlesPerTexture());
 }
 
 ParticleEngine::~ParticleEngine() {
@@ -27,7 +27,8 @@ void ParticleEngine::add(Particle* p) {
     }
 
     ParticleList& list = particles[t];
-    if (list.size() >= MCPE_MAX_PARTICLES_PER_TEXTURE) {
+    const unsigned int maxParticles = MCPE_getMaxParticlesPerTexture();
+    if (list.size() >= maxParticles) {
         // Particle order is not gameplay state; replace the oldest slot in O(1).
         delete list.front();
         list.front() = list.back();
