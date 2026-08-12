@@ -4,10 +4,11 @@
 #include "RenderChunk.h"
 #include "Tesselator.h"
 
-
 RenderList::RenderList()
 	:	inited(false),
-	rendered(false)
+	rendered(false),
+	listIndex(0),
+	bufferLimit(0)
 {
 	lists = new int[MAX_NUM_OBJECTS];
 	rlists = new RenderChunk[MAX_NUM_OBJECTS];
@@ -23,6 +24,7 @@ RenderList::~RenderList() {
 
 void RenderList::init(float xOff, float yOff, float zOff) {
 	inited = true;
+	rendered = false;
 	listIndex = 0;
 
 	this->xOff = (float) xOff;
@@ -31,16 +33,22 @@ void RenderList::init(float xOff, float yOff, float zOff) {
 }
 
 void RenderList::add(int list) {
-	lists[listIndex] = list;
-	if (listIndex == MAX_NUM_OBJECTS) /*lists.remaining() == 0)*/ render();
+	if (listIndex >= MAX_NUM_OBJECTS) {
+		render();
+		return;
+	}
+	lists[listIndex++] = list;
 }
 
 void RenderList::addR(const RenderChunk& chunk) {
-	rlists[listIndex] = chunk;
+	if (listIndex >= MAX_NUM_OBJECTS) {
+		render();
+		return;
+	}
+	rlists[listIndex++] = chunk;
 }
 
 void RenderList::render() {
-
 	if (!inited) return;
 	if (!rendered) {
 		bufferLimit = listIndex;
@@ -51,18 +59,17 @@ void RenderList::render() {
 		glPushMatrix2();
 		glTranslatef2(-xOff, -yOff, -zOff);
 
-		#ifndef USE_VBO
-			glCallLists(bufferLimit, GL_UNSIGNED_INT, lists);
-		#else
-			renderChunks();
-		#endif/*!USE_VBO*/
+#ifndef USE_VBO
+		glCallLists(bufferLimit, GL_UNSIGNED_INT, lists);
+#else
+		renderChunks();
+#endif
 
 		glPopMatrix2();
 	}
 }
 
 void RenderList::renderChunks() {
-	//glDisableClientState2(GL_NORMAL_ARRAY);
 	glEnableClientState2(GL_VERTEX_ARRAY);
 	glEnableClientState2(GL_COLOR_ARRAY);
 	glEnableClientState2(GL_TEXTURE_COORD_ARRAY);
@@ -93,4 +100,6 @@ void RenderList::renderChunks() {
 void RenderList::clear() {
 	inited = false;
 	rendered = false;
+	listIndex = 0;
+	bufferLimit = 0;
 }
