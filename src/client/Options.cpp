@@ -3,15 +3,16 @@
 #include "Minecraft.h"
 #include "../platform/log.h"
 #include "../world/Difficulty.h"
-#include "../renderer/OptimizationConfig.h"
 #include <cmath>
 #include <memory>
 
 bool Options::debugGl = false;
 
-// Runtime state used by the renderer. Potato Mode defaults to the compile-time
-// potato default, but can now be changed from Graphics settings.
-bool g_mcpePotatoMode = MCPE_POTATO_MODE != 0;
+// Runtime state used by the renderer. Keep the default here instead of
+// including renderer/OptimizationConfig.h so Android builds that compile
+// src/client/ independently do not depend on that renderer header being
+// visible to the client compilation unit.
+bool g_mcpePotatoMode = true;
 
 // OPTIONS TABLE
 
@@ -67,7 +68,7 @@ OptionBool restoredAnims("restoredAnims", true);
 OptionInt debugStyle("debugStyle", 0, 0, 1);
 OptionInt menuStyle("menuStyle", 0, 0, 2);
 OptionBool windowScale("windowScale", false);
-OptionBool potatoMode("potatoMode", MCPE_POTATO_MODE != 0);
+OptionBool potatoMode("potatoMode", true);
 
 OptionInt keyForward("key.forward", Keyboard::KEY_W);
 OptionInt keyLeft("key.left", Keyboard::KEY_A);
