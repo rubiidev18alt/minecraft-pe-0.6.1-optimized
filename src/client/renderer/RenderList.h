@@ -7,7 +7,8 @@ class RenderChunk;
 
 class RenderList
 {
-	static const int MAX_NUM_OBJECTS = 1024 * 3;
+	// Large enough for the maximum vanilla chunk ring without an out-of-bounds write.
+	static const int MAX_NUM_OBJECTS = 16384;
 
 public:
 	RenderList();
