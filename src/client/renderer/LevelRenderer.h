@@ -5,6 +5,7 @@
 
 #include "../../world/level/LevelListener.h"
 #include "../../world/phys/Vec3.h"
+#include "OptimizationConfig.h"
 #include "RenderList.h"
 #include "gles.h"
 #include <vector>
@@ -17,6 +18,7 @@ class TileRenderer;
 class Level;
 class Mob;
 class Player;
+class Entity;
 class HitResult;
 class AABB;
 class TripodCamera;
@@ -25,8 +27,8 @@ class LevelRenderer: public LevelListener
 {
 public:
     static const int CHUNK_SIZE;
-    static const int MAX_VISIBLE_REBUILDS_PER_FRAME = 3;
-    static const int MAX_INVISIBLE_REBUILDS_PER_FRAME = 1;
+    static const int MAX_VISIBLE_REBUILDS_PER_FRAME = MCPE_NEAR_CHUNK_REBUILDS_PER_FRAME;
+    static const int MAX_INVISIBLE_REBUILDS_PER_FRAME = MCPE_FAR_CHUNK_REBUILDS_PER_FRAME;
     
     float xOld;
     float yOld;
@@ -61,7 +63,6 @@ public:
 	void cull(Culler* culler, float a);
     void skyColorChanged();
 
-	//void addParticle(ParticleType::Id name, float x, float y, float z, float xa, float ya, float za, int data);
 	void addParticle(const std::string& name, float x, float y, float z, float xa, float ya, float za, int data);
 	void playSound(const std::string& name, float x, float y, float z, float volume, float pitch);
 	void takePicture(TripodCamera* cam, Entity* entity);
@@ -79,7 +80,6 @@ private:
 	int  renderChunks(int from, int to, int layer, float alpha);
 	void resortChunks(int xc, int yc, int zc);
 	void deleteChunks();
-	//void checkQueryResults(int from, int to);
 	__inline int getLinearCoord(int x, int y, int z) {
 		return (z * yChunks + y) * xChunks + x;
 	}
@@ -89,10 +89,10 @@ private:
     int culledEntities;
 
 	std::vector<Chunk*> _renderChunks;
+    std::vector<Entity*> _entitiesToRender;
 
     int cullStep;
-	//static const int renderListsLength = 4;
-    RenderList renderList;//[renderListsLength];
+    RenderList renderList;
 
 	int totalChunks, offscreenChunks, occludedChunks, renderedChunks, emptyChunks;
     int chunkFixOffs;
@@ -116,7 +116,6 @@ private:
 	bool occlusionCheck;
 	int lastViewDistance;
 
-	// shredder added again...
 	int lastFogType;
 
 	bool LastTint;
@@ -136,10 +135,7 @@ private:
 	GLuint starBuffer;
 	int starVertexCount;
 
-//    /*public*/ std::vector<TileEntity*> renderableTileEntities;
     Textures* textures;
-//    /*private*/ TileRenderer tileRenderer;
-//    /*private*/ IntBuffer occlusionCheckIds;
 };
 
 #endif /*NET_MINECRAFT_CLIENT_RENDERER__LevelRenderer_H__*/
