@@ -24,10 +24,8 @@ void OptionsGroup::setupPositions() {
 	int curY = y + labelHeight - scrollOffset;
 	const int contentStartY = y + labelHeight;
 
-	// First we write the header and then we add the items
 	for(auto it = children.begin(); it != children.end(); ++it) {
 		(*it)->width = width - 5;
-		
 		(*it)->y = curY;
 		(*it)->x = x + 10;
 		(*it)->setupPositions();
@@ -47,9 +45,7 @@ void OptionsGroup::render( Minecraft* minecraft, int xm, int ym ) {
 	float padX = 10.0f;
 	float padY = 5.0f;
 	const int labelHeight = 18;
-	
 	minecraft->font->draw(label, (float)x + padX, (float)y + padY, 0xffffffff, false);
-
 	glEnable2(GL_SCISSOR_TEST);
 	glScissor(
 		Gui::GuiScale * x,
@@ -57,7 +53,6 @@ void OptionsGroup::render( Minecraft* minecraft, int xm, int ym ) {
 		Gui::GuiScale * width,
 		Gui::GuiScale * (height - labelHeight)
 	);
-
 	super::render(minecraft, xm, ym);
 	glDisable2(GL_SCISSOR_TEST);
 }
@@ -65,12 +60,10 @@ void OptionsGroup::render( Minecraft* minecraft, int xm, int ym ) {
 void OptionsGroup::tick(Minecraft* minecraft) {
 	int xm = Mouse::getX();
 	int ym = Mouse::getY();
-	if (minecraft->screen != NULL) {
+	if (minecraft->screen != NULL)
 		minecraft->screen->toGUICoordinate(xm, ym);
-	}
 
 	bool leftDown = Mouse::isButtonDown(MouseAction::ACTION_LEFT);
-
 	if (trackingScrollGesture && leftDown) {
 		int dy = ym - lastDragY;
 		int dx = xm - dragStartX;
@@ -78,17 +71,14 @@ void OptionsGroup::tick(Minecraft* minecraft) {
 			int totalDx = xm - dragStartX;
 			int totalDy = ym - dragStartY;
 			if (std::abs(totalDx) >= ScrollStartThreshold || std::abs(totalDy) >= ScrollStartThreshold) {
-				if (std::abs(totalDy) >= std::abs(totalDx)) {
-					scrollingGesture = true;
-				} else if (!touchDispatched) {
+				if (std::abs(totalDy) >= std::abs(totalDx)) scrollingGesture = true;
+				else if (!touchDispatched) {
 					super::mouseClicked(minecraft, touchStartX, touchStartY, MouseAction::ACTION_LEFT);
 					touchDispatched = true;
 				}
 			}
 		}
-		if (scrollingGesture && dy != 0) {
-			scrollByPixels((float)dy);
-		}
+		if (scrollingGesture && dy != 0) scrollByPixels((float)dy);
 		lastDragY = ym;
 	}
 	super::tick(minecraft);
@@ -98,7 +88,6 @@ void OptionsGroup::mouseClicked(Minecraft* minecraft, int x, int y, int buttonNu
 	trackingScrollGesture = false;
 	scrollingGesture = false;
 	touchDispatched = false;
-
 	if (buttonNum == MouseAction::ACTION_LEFT && pointInside(x, y)) {
 		trackingScrollGesture = true;
 		dragStartX = x;
@@ -108,7 +97,6 @@ void OptionsGroup::mouseClicked(Minecraft* minecraft, int x, int y, int buttonNu
 		touchStartY = y;
 		return;
 	}
-
 	super::mouseClicked(minecraft, x, y, buttonNum);
 }
 
@@ -121,15 +109,11 @@ void OptionsGroup::mouseReleased(Minecraft* minecraft, int x, int y, int buttonN
 		super::mouseClicked(minecraft, touchStartX, touchStartY, buttonNum);
 		touchDispatched = true;
 	}
-
-	if (!wasScrolling) {
-		super::mouseReleased(minecraft, x, y, buttonNum);
-	}
+	if (!wasScrolling) super::mouseReleased(minecraft, x, y, buttonNum);
 }
 
 void OptionsGroup::scrollByPixels(float deltaY) {
 	if (deltaY == 0.0f || maxScrollOffsetY <= 0.0f) return;
-
 	scrollOffsetY = Mth::clamp(scrollOffsetY - deltaY, 0.0f, maxScrollOffsetY);
 	setupPositions();
 }
@@ -140,37 +124,34 @@ bool OptionsGroup::isScrollingGestureActive() const {
 
 OptionsGroup& OptionsGroup::addOptionItem(OptionId optId, Minecraft* minecraft ) {
 	auto option = minecraft->options.getOpt(optId);
-
 	if (option == nullptr) return *this;
-
-	// TODO: do a options key class to check it faster via dynamic_cast
 	if (option->getStringId().find("options.key") != std::string::npos) createKey(optId, minecraft);
 	else if (dynamic_cast<OptionBool*>(option)) createToggle(optId, minecraft);
 	else if (dynamic_cast<OptionFloat*>(option)) createProgressSlider(optId, minecraft);
 	else if (dynamic_cast<OptionInt*>(option)) createStepSlider(optId, minecraft);
 	else if (dynamic_cast<OptionString*>(option)) createTextbox(optId, minecraft);
-
 	return *this;
 }
 
-// TODO: wrap this copypaste shit into templates
-
 void OptionsGroup::createToggle(OptionId optId, Minecraft* minecraft ) {
 	ImageDef def;
-
 	def.setSrc(IntRectangle(160, 206, 39, 20));
 	def.name = "gui/touchgui.png";
 	def.width = 39 * 0.7f;
 	def.height = 20 * 0.7f;
-	
 	OptionButton* element = new OptionButton(optId);
 	element->setImageDef(def, true);
 	element->updateImage(&minecraft->options);
-	
-	std::string itemLabel = I18n::get(minecraft->options.getOpt(optId)->getStringId());
-	
+
+	std::string itemLabel;
+	// Keep the new setting readable even on installations whose language pack
+	// predates Potato Mode.
+	if (optId == OPTIONS_POTATO_MODE)
+		itemLabel = "Potato Mode";
+	else
+		itemLabel = I18n::get(minecraft->options.getOpt(optId)->getStringId());
+
 	OptionsItem* item = new OptionsItem(optId, itemLabel, element);
-	
 	addChild(item);
 	setupPositions();
 }
@@ -179,7 +160,6 @@ void OptionsGroup::createProgressSlider(OptionId optId, Minecraft* minecraft ) {
 	Slider* element = new SliderFloat(minecraft, optId);
 	element->width = 100;
 	element->height = 20;
-
 	std::string itemLabel = I18n::get(minecraft->options.getOpt(optId)->getStringId());
 	OptionsItem* item = new OptionsItem(optId, itemLabel, element);
 	addChild(item);
@@ -200,7 +180,6 @@ void OptionsGroup::createTextbox(OptionId optId, Minecraft* minecraft) {
 	TextBox* element = new TextOption(minecraft, optId);
 	element->width = 100;
 	element->height = 20;
-
 	std::string itemLabel = I18n::get(minecraft->options.getOpt(optId)->getStringId());
 	OptionsItem* item = new OptionsItem(optId, itemLabel, element);
 	addChild(item);
@@ -211,7 +190,6 @@ void OptionsGroup::createKey(OptionId optId, Minecraft* minecraft) {
 	KeyOption* element = new KeyOption(minecraft, optId);
 	element->width = 50;
 	element->height = 20;
-
 	std::string itemLabel = I18n::get(minecraft->options.getOpt(optId)->getStringId());
 	OptionsItem* item = new OptionsItem(optId, itemLabel, element);
 	addChild(item);
