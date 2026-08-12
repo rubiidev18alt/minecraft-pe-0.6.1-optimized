@@ -147,7 +147,7 @@ void OptionsGroup::createToggle(OptionId optId, Minecraft* minecraft ) {
 	// Keep the new setting readable even on installations whose language pack
 	// predates Potato Mode.
 	if (optId == OPTIONS_POTATO_MODE)
-		itemLabel = "Potato Mode";
+		itemLabel = "Graphics Preset: Lowest (Potato Mode)";
 	else
 		itemLabel = I18n::get(minecraft->options.getOpt(optId)->getStringId());
 
